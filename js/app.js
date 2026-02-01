@@ -1,10 +1,32 @@
+// Phase 5: Persistence - 'Brain' Foundation
+let appState = null;
+
 document.addEventListener('DOMContentLoaded', () => {
-    initApp();
+    loadState();
 });
 
-function initApp() {
+// Debugging helper exposed to window
+window.debugState = () => console.log('Current App State:', appState);
+
+function loadState() {
     console.log('Initializing Civic.json Engine...');
 
+    // 1. Check LocalStorage
+    const localData = localStorage.getItem('civicData');
+
+    if (localData) {
+        try {
+            appState = JSON.parse(localData);
+            console.log('Loaded from LocalStorage:', appState);
+            renderDashboard(appState);
+            calculateSurvivalScore(appState);
+            return; // Exit early, do not fetch
+        } catch (e) {
+            console.error('LocalStorage corrupted, falling back to factory defaults.', e);
+        }
+    }
+
+    // 2. Fallback to Factory Defaults (JSON fetch)
     fetch('data/village.json')
         .then(response => {
             if (!response.ok) {
@@ -13,14 +35,37 @@ function initApp() {
             return response.json();
         })
         .then(data => {
-            console.log('Data loaded successfully:', data);
-            renderDashboard(data);
-            calculateSurvivalScore(data);
+            appState = data;
+            console.log('Initialized from Factory Defaults:', appState);
+            saveState(); // Initialize LocalStorage
+            renderDashboard(appState);
+            calculateSurvivalScore(appState);
         })
         .catch(error => {
             console.error('Fetch error:', error);
-            renderErrorState();
+            // Only show error if we have NO data at all
+            if (!appState) {
+                renderErrorState();
+            }
         });
+}
+
+function saveState() {
+    if (appState) {
+        try {
+            localStorage.setItem('civicData', JSON.stringify(appState));
+            console.log('State saved to LocalStorage');
+        } catch (e) {
+            console.error('Failed to save state:', e);
+        }
+    }
+}
+
+// Internal helper for Hard Reset (to be wired later)
+function resetToFactorySettings() {
+    console.warn('Resetting to Factory Settings...');
+    localStorage.removeItem('civicData');
+    location.reload();
 }
 
 function calculateSurvivalScore(data) {

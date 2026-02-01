@@ -18,6 +18,12 @@
     --status-good: #2a9d8f;
     --status-critical: #e63946;
     --status-adequate: #e9c46a;
+
+    /* Health Status */
+    --health-healthy: #27ae60;
+    --health-injured: #f39c12;
+    --health-sick: #c0392b;
+    --health-deceased: #7f8c8d;
 }
 
 * {
@@ -43,7 +49,7 @@ body {
     width: 250px;
     height: 100vh;
     background: rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(5px); /* Optional minimal blur for sidebar, can remove if low-power strict */
+    backdrop-filter: blur(5px);
     border-right: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     flex-direction: column;
@@ -357,13 +363,13 @@ i {
     display: inline-block;
 }
 
-.health-dot.healthy {
-    background-color: var(--status-good);
-    box-shadow: 0 0 5px var(--status-good);
-}
+.health-dot.status-healthy { background-color: var(--health-healthy); box-shadow: 0 0 5px var(--health-healthy); }
+.health-dot.status-injured { background-color: var(--health-injured); box-shadow: 0 0 5px var(--health-injured); }
+.health-dot.status-sick { background-color: var(--health-sick); box-shadow: 0 0 5px var(--health-sick); }
+.health-dot.status-deceased { background-color: var(--health-deceased); }
 
-/* Dismiss/Delete Buttons */
-.btn-dismiss, .btn-trash {
+/* Dismiss/Edit/Delete Buttons */
+.btn-dismiss, .btn-trash, .btn-edit {
     position: absolute;
     top: 0.5rem;
     right: 0.5rem;
@@ -376,13 +382,20 @@ i {
     transition: opacity 0.2s;
 }
 
-.btn-dismiss:hover, .btn-trash:hover {
-    opacity: 1;
-    color: var(--severity-critical);
+/* Spacing between buttons if multiple */
+.btn-edit {
+    right: 2.5rem; /* Offset to not overlap with Trash */
 }
 
+.btn-dismiss:hover, .btn-trash:hover, .btn-edit:hover {
+    opacity: 1;
+}
+
+.btn-trash:hover { color: var(--severity-critical); }
+.btn-edit:hover { color: var(--color-primary); }
+
 /* FAB Button */
-#admin-toggle {
+#admin-toggle, #add-person-btn {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
@@ -401,13 +414,37 @@ i {
     transition: transform 0.2s ease;
 }
 
-#admin-toggle:hover {
-    transform: scale(1.1);
+/* Only fixed if we want floating, but section header buttons are usually inline */
+/* Actually, the prompt implied FAB for Add Resource (admin-toggle).
+   For alerts it was inline section header button.
+   For Person add, previously it was inline.
+   If we want FAB for Person page too, we can position it.
+   Let's check the HTML.
+   In people.html, #add-person-btn is inside .section-header.
+   In index.html, #add-alert-btn is inside .section-header.
+   #admin-toggle is separate (FAB).
+   So #add-person-btn should NOT be fixed position FAB unless we want it to be.
+   Let's remove fixed positioning for .icon-btn class users if they are inline.
+*/
+
+/* Override FAB specific for the global one */
+#admin-toggle {
+    /* Keep existing fixed styles */
 }
 
-#admin-toggle i {
-    font-size: 1.5rem;
-    color: var(--color-text);
+/* The other buttons (add-alert, add-person) are .icon-btn in section header,
+   so we should ensure they are not affected by #admin-toggle selector if grouped incorrectly.
+   My previous CSS block had #admin-toggle, #add-person-btn { ... } which makes both fixed.
+   Let's fix this.
+*/
+
+#add-person-btn {
+    /* If inside section header, it should be relative/inline */
+    position: static;
+    width: auto;
+    height: auto;
+    box-shadow: none;
+    background: transparent;
 }
 
 /* Modal Dialog */
@@ -427,14 +464,14 @@ dialog::backdrop {
     backdrop-filter: blur(2px);
 }
 
-#resource-form, #alert-form {
+#resource-form, #alert-form, #person-form {
     padding: 2rem;
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-#resource-form h2, #alert-form h2 {
+#resource-form h2, #alert-form h2, #person-form h2 {
     color: var(--color-primary);
     border-bottom: none;
     padding-bottom: 0;
@@ -490,8 +527,8 @@ button[type="submit"], button[type="button"] {
 @media (max-width: 768px) {
     body {
         padding: 1rem;
-        padding-bottom: 80px; /* Space for bottom nav */
-        padding-left: 1rem; /* Reset sidebar offset */
+        padding-bottom: 80px;
+        padding-left: 1rem;
     }
 
     .sidebar {
@@ -504,13 +541,13 @@ button[type="submit"], button[type="button"] {
         border-right: none;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         padding: 0.5rem 1rem;
-        background: #1b263b; /* Solid background for legibility */
+        background: #1b263b;
         justify-content: space-around;
         align-items: center;
     }
 
     .brand {
-        display: none; /* Hide brand on mobile bottom nav */
+        display: none;
     }
 
     .nav-link {
@@ -534,7 +571,6 @@ button[type="submit"], button[type="button"] {
         font-size: 1.5rem;
     }
 
-    /* Adjust FAB position to be above nav */
     #admin-toggle {
         bottom: 5rem;
         right: 1.5rem;

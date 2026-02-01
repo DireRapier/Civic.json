@@ -1,8 +1,7 @@
-// Phase 5: Persistence - 'Brain' Foundation
-// Phase 6: Full Lifecycle & Polish
-// Phase 11: Inventory Management (Smart Quantity)
-// Phase 12: Layout Split & Census
+// Phase 13: The Master Update (Full Editing & Census)
 let appState = null;
+let editingResourceId = null;
+let editingPersonId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadState();
@@ -12,10 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
     if (path.includes('people.html')) {
         renderCensus(appState);
-        // Setup Census specific controls if/when added (e.g. Add Person Modal)
+        setupPersonControls();
     } else {
-        renderDashboard(appState); // Default (Index)
-        setupAdminControls(); // Index specific modals (Resource/Alert)
+        renderDashboard(appState);
+        setupResourceControls();
+        setupAlertControls();
     }
 });
 
@@ -44,7 +44,7 @@ function loadState() {
         communityName: "My Community",
         resources: [],
         alerts: [],
-        people: [], // Replaces 'skills' from original mock, or we migrate if needed. V1.0 Clean Slate implies empty.
+        people: [],
         lastUpdated: Date.now()
     };
     console.log('Initialized Empty State:', appState);
@@ -63,17 +63,11 @@ function saveState() {
     }
 }
 
-function resetToFactorySettings() {
-    console.warn('Resetting to Factory Settings...');
-    localStorage.removeItem('civicData');
-    location.reload();
-}
-
 function calculateSurvivalScore(data) {
     const scoreElement = document.getElementById('survival-score');
     const header = document.getElementById('app-header');
 
-    if (!scoreElement || !header) return; // Guard for pages missing header elements (shouldn't happen with shared header)
+    if (!scoreElement || !header) return;
 
     // Count Active Resources ("Good" or "Adequate")
     let activeResources = 0;
@@ -83,12 +77,19 @@ function calculateSurvivalScore(data) {
         ).length;
     }
 
-    // Count Skills/People
+    // Count Skills/People (Healthy only? Or all? Prompt said "Count Skills available")
+    // Let's assume all alive people count for now, or maybe only Healthy/Injured but not Sick/Deceased?
+    // The previous logic was just length. Let's keep it simple or maybe refine based on Health Status.
+    // "Human skills are the most critical asset". Sick people can't work well.
+    // Let's count Healthy and Injured (maybe?) as available. Or just all Living.
+    // Given no specific instruction to change scoring logic this turn, I'll stick to length of people array.
+    // BUT wait, "Deceased" is an option now. They definitely shouldn't count.
+
     let skillCount = 0;
     if (data.people) {
-        skillCount = data.people.length; // Assuming all people count as "Skills" for now, or filter by having a skill
+        skillCount = data.people.filter(p => p.health !== 'Deceased').length;
     } else if (data.skills) {
-        skillCount = data.skills.length; // Legacy support
+        skillCount = data.skills.length; // Legacy
     }
 
     // Formula: (Active Resources * 5) + (Skills * 10)
@@ -113,6 +114,10 @@ function calculateSurvivalScore(data) {
 
     header.style.borderBottom = `4px solid ${borderColor}`;
 }
+
+// ==========================================================================
+// RENDER FUNCTIONS
+// ==========================================================================
 
 function renderDashboard(data) {
     const alertsContainer = document.getElementById('alerts-container');
@@ -160,17 +165,29 @@ function renderCensus(data) {
     if (!censusContainer) return;
 
     censusContainer.innerHTML = '';
-    // We assume a grid layout for census similar to resources, or list
-    // Let's use grid-like cards
 
-    const people = data.people || data.skills || []; // Fallback
+    const people = data.people || [];
 
     if (people.length > 0) {
-        people.forEach((person) => {
+        people.forEach((person, index) => {
             const card = document.createElement('div');
             card.className = 'card census-card';
 
-            // Layout: Avatar/Icon + Details
+            // Edit Button
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn-edit';
+            editBtn.innerHTML = '<i class="ri-pencil-line"></i>';
+            editBtn.onclick = () => openPersonModal(person.id);
+            card.appendChild(editBtn);
+
+            // Delete Button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-trash';
+            deleteBtn.innerHTML = '<i class="ri-delete-bin-line"></i>';
+            deleteBtn.onclick = () => deletePerson(index);
+            card.appendChild(deleteBtn);
+
+            // Layout
             const header = document.createElement('div');
             header.className = 'card-header';
             header.innerHTML = `<i class="ri-user-smile-line"></i> <h3>${person.name}</h3>`;
@@ -179,33 +196,37 @@ function renderCensus(data) {
             const body = document.createElement('div');
             body.className = 'card-body';
 
-            // Skill
-            if (person.skill) {
-                const skill = document.createElement('p');
-                skill.innerHTML = `<strong>Skill:</strong> ${person.skill}`;
-                body.appendChild(skill);
+            // Details
+            const details = document.createElement('p');
+            details.innerHTML = `${person.age} / ${person.gender} <br> <strong>${person.skill}</strong>`;
+            body.appendChild(details);
+
+            // Contact
+            if (person.contact) {
+                const contact = document.createElement('p');
+                contact.style.fontSize = '0.9rem';
+                contact.style.opacity = '0.8';
+                contact.textContent = person.contact;
+                body.appendChild(contact);
             }
 
-            // Age (if available in future schema, currently using mock schema from prompt "Name, Age, Skill, Health Dot")
-            if (person.age) {
-                const age = document.createElement('p');
-                age.innerText = `Age: ${person.age}`;
-                body.appendChild(age);
-            }
-
-            // Health Dot (Visual Mockup)
+            // Health Dot
             const healthStatus = document.createElement('div');
             healthStatus.className = 'health-status';
-            healthStatus.innerHTML = `<span class="health-dot healthy"></span> Healthy`; // Mock status
+            healthStatus.innerHTML = `<span class="health-dot status-${person.health.toLowerCase()}"></span> ${person.health}`;
             body.appendChild(healthStatus);
 
             card.appendChild(body);
             censusContainer.appendChild(card);
         });
     } else {
-        censusContainer.innerHTML = `<div class="card empty-resources" style="text-align:center; opacity:0.6; padding:2rem;"><h3>Directory Empty. Add residents to track skills.</h3></div>`;
+        censusContainer.innerHTML = `<div class="card empty-resources" style="text-align:center; opacity:0.6; padding:2rem; grid-column: 1 / -1;"><h3>Directory Empty. Add residents to track skills.</h3></div>`;
     }
 }
+
+// ==========================================================================
+// CARD CREATORS & HELPERS
+// ==========================================================================
 
 function clearContentAfterHeader(container) {
     while (container.lastElementChild && container.lastElementChild.tagName !== 'H2') {
@@ -250,6 +271,14 @@ function createResourceCard(resource, index) {
     const card = document.createElement('div');
     card.className = 'card resource-card';
 
+    // Edit Button
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-edit';
+    editBtn.innerHTML = '<i class="ri-pencil-line"></i>';
+    editBtn.onclick = () => openResourceModal(resource.id);
+    card.appendChild(editBtn);
+
+    // Trash Button
     const trashBtn = document.createElement('button');
     trashBtn.className = 'btn-trash';
     trashBtn.innerHTML = '<i class="ri-delete-bin-line"></i>';
@@ -263,17 +292,15 @@ function createResourceCard(resource, index) {
     };
     card.appendChild(trashBtn);
 
+    // Content
     const header = document.createElement('div');
     header.className = 'card-header';
-
     const icon = document.createElement('i');
     icon.className = getResourceIconClass(resource.type);
     header.appendChild(icon);
-
     const type = document.createElement('h3');
     type.textContent = resource.type;
     header.appendChild(type);
-
     card.appendChild(header);
 
     const body = document.createElement('div');
@@ -286,10 +313,8 @@ function createResourceCard(resource, index) {
     const quantityRow = document.createElement('div');
     quantityRow.className = 'quantity-row';
 
-    // Smart Quantity Logic: Check if there is a number
-    // Regex: Start with Number (Group 1), then Unit (Group 2)
+    // Smart Quantity
     const qtyMatch = resource.quantity.match(/^([\d\.]+)(\s*.*)$/);
-
     if (qtyMatch) {
         const minusBtn = document.createElement('button');
         minusBtn.className = 'qty-btn';
@@ -309,13 +334,11 @@ function createResourceCard(resource, index) {
         quantityRow.appendChild(qtyText);
         quantityRow.appendChild(plusBtn);
     } else {
-        // Fallback for non-numeric quantities
         const qtyText = document.createElement('span');
         qtyText.className = 'quantity';
         qtyText.textContent = resource.quantity;
         quantityRow.appendChild(qtyText);
     }
-
     body.appendChild(quantityRow);
 
     const status = document.createElement('span');
@@ -324,21 +347,21 @@ function createResourceCard(resource, index) {
     body.appendChild(status);
 
     card.appendChild(body);
-
     return card;
 }
 
+// ==========================================================================
+// LOGIC HANDLERS
+// ==========================================================================
+
 function updateQuantity(index, change) {
     const resource = appState.resources[index];
-    // Regex: Start with Number (Group 1), then Unit (Group 2)
     const match = resource.quantity.match(/^([\d\.]+)(\s*.*)$/);
 
     if (!match) return;
 
     let currentVal = parseFloat(match[1]);
     let newVal = currentVal + change;
-
-    // Round to avoid floating point errors
     newVal = Math.round(newVal * 100) / 100;
 
     if (newVal <= 0) {
@@ -349,14 +372,11 @@ function updateQuantity(index, change) {
             calculateSurvivalScore(appState);
             return;
         } else {
-            // User cancelled delete, set to 0
             newVal = 0;
         }
     }
 
-    // Reconstruct string
     resource.quantity = newVal + match[2];
-
     saveState();
     renderDashboard(appState);
 }
@@ -370,32 +390,123 @@ function formatDate(timestamp) {
     }).format(new Date(timestamp));
 }
 
-function setupAdminControls() {
-    // Resource Modal
+function openResourceModal(id) {
+    const modal = document.getElementById('edit-modal');
+    if (!modal) return;
+
+    if (id) {
+        // EDIT MODE
+        editingResourceId = id;
+        const resource = appState.resources.find(r => r.id === id);
+        if (resource) {
+            document.getElementById('resource-modal-title').textContent = "Edit Resource";
+            document.getElementById('btn-save-resource').textContent = "Update";
+
+            document.getElementById('input-type').value = resource.type;
+            document.getElementById('input-location').value = resource.location;
+            document.getElementById('input-quantity').value = resource.quantity;
+            document.getElementById('input-status').value = resource.status;
+        }
+    } else {
+        // ADD MODE
+        editingResourceId = null;
+        document.getElementById('resource-modal-title').textContent = "Add Resource";
+        document.getElementById('btn-save-resource').textContent = "Save Change";
+        document.getElementById('resource-form').reset();
+    }
+    modal.showModal();
+}
+
+function openPersonModal(id) {
+    const modal = document.getElementById('person-modal');
+    if (!modal) return;
+
+    if (id) {
+        // EDIT MODE
+        editingPersonId = id;
+        const person = appState.people.find(p => p.id === id);
+        if (person) {
+            document.getElementById('person-modal-title').textContent = "Edit Resident";
+            document.getElementById('btn-save-person').textContent = "Update";
+
+            document.getElementById('person-name').value = person.name;
+            document.getElementById('person-age').value = person.age;
+            document.getElementById('person-gender').value = person.gender;
+            document.getElementById('person-skill').value = person.skill;
+            document.getElementById('person-health').value = person.health;
+            document.getElementById('person-contact').value = person.contact;
+        }
+    } else {
+        // ADD MODE
+        editingPersonId = null;
+        document.getElementById('person-modal-title').textContent = "Add Resident";
+        document.getElementById('btn-save-person').textContent = "Save Resident";
+        document.getElementById('person-form').reset();
+    }
+    modal.showModal();
+}
+
+function deletePerson(index) {
+    if (confirm("Remove this resident from the census?")) {
+        appState.people.splice(index, 1);
+        saveState();
+        renderCensus(appState);
+        calculateSurvivalScore(appState);
+    }
+}
+
+// ==========================================================================
+// SETUP CONTROLS (Safe Event Listeners)
+// ==========================================================================
+
+function setupResourceControls() {
     const fab = document.getElementById('admin-toggle');
     const modal = document.getElementById('edit-modal');
     const form = document.getElementById('resource-form');
     const cancelBtn = document.getElementById('btn-cancel');
 
     if (fab) {
-        fab.addEventListener('click', () => modal.showModal());
+        // Use logic function to open
+        fab.addEventListener('click', () => openResourceModal(null));
+    }
+
+    if (modal && cancelBtn) {
         cancelBtn.addEventListener('click', () => modal.close());
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.close();
         });
+    }
 
+    if (form) {
         form.addEventListener('submit', (e) => {
             e.preventDefault();
-            const newResource = {
-                id: Date.now().toString(),
-                type: document.getElementById('input-type').value,
-                location: document.getElementById('input-location').value,
-                quantity: document.getElementById('input-quantity').value,
-                status: document.getElementById('input-status').value
-            };
 
-            if (!appState.resources) appState.resources = [];
-            appState.resources.push(newResource);
+            const type = document.getElementById('input-type').value;
+            const location = document.getElementById('input-location').value;
+            const quantity = document.getElementById('input-quantity').value;
+            const status = document.getElementById('input-status').value;
+
+            if (editingResourceId) {
+                // UPDATE
+                const resource = appState.resources.find(r => r.id === editingResourceId);
+                if (resource) {
+                    resource.type = type;
+                    resource.location = location;
+                    resource.quantity = quantity;
+                    resource.status = status;
+                }
+            } else {
+                // CREATE
+                const newResource = {
+                    id: Date.now().toString(),
+                    type: type,
+                    location: location,
+                    quantity: quantity,
+                    status: status
+                };
+                if (!appState.resources) appState.resources = [];
+                appState.resources.push(newResource);
+            }
 
             saveState();
             renderDashboard(appState);
@@ -403,10 +514,77 @@ function setupAdminControls() {
 
             form.reset();
             modal.close();
+            editingResourceId = null;
+        });
+    }
+}
+
+function setupPersonControls() {
+    const fab = document.getElementById('add-person-btn');
+    const modal = document.getElementById('person-modal');
+    const form = document.getElementById('person-form');
+    const cancelBtn = document.getElementById('btn-cancel-person');
+
+    if (fab) {
+        fab.addEventListener('click', () => openPersonModal(null));
+    }
+
+    if (modal && cancelBtn) {
+        cancelBtn.addEventListener('click', () => modal.close());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.close();
         });
     }
 
-    // Alert Modal
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('person-name').value;
+            const age = document.getElementById('person-age').value;
+            const gender = document.getElementById('person-gender').value;
+            const skill = document.getElementById('person-skill').value;
+            const health = document.getElementById('person-health').value;
+            const contact = document.getElementById('person-contact').value;
+
+            if (editingPersonId) {
+                // UPDATE
+                const person = appState.people.find(p => p.id === editingPersonId);
+                if (person) {
+                    person.name = name;
+                    person.age = age;
+                    person.gender = gender;
+                    person.skill = skill;
+                    person.health = health;
+                    person.contact = contact;
+                }
+            } else {
+                // CREATE
+                const newPerson = {
+                    id: Date.now().toString(),
+                    name: name,
+                    age: age,
+                    gender: gender,
+                    skill: skill,
+                    health: health,
+                    contact: contact
+                };
+                if (!appState.people) appState.people = [];
+                appState.people.push(newPerson);
+            }
+
+            saveState();
+            renderCensus(appState);
+            calculateSurvivalScore(appState);
+
+            form.reset();
+            modal.close();
+            editingPersonId = null;
+        });
+    }
+}
+
+function setupAlertControls() {
     const addAlertBtn = document.getElementById('add-alert-btn');
     const alertModal = document.getElementById('alert-modal');
     const alertForm = document.getElementById('alert-form');
@@ -414,11 +592,16 @@ function setupAdminControls() {
 
     if (addAlertBtn) {
         addAlertBtn.addEventListener('click', () => alertModal.showModal());
+    }
+
+    if (alertModal && cancelAlertBtn) {
         cancelAlertBtn.addEventListener('click', () => alertModal.close());
         alertModal.addEventListener('click', (e) => {
             if (e.target === alertModal) alertModal.close();
         });
+    }
 
+    if (alertForm) {
         alertForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const newAlert = {

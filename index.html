@@ -12,8 +12,23 @@
 <body>
 
     <header id="app-header">
-        <h1><i class="ri-community-line"></i> Civic.json</h1>
-        <div id="survival-score"></div>
+        <div class="header-left">
+            <h1><i class="ri-community-line"></i> Civic.json</h1>
+        </div>
+
+        <div class="header-center">
+            <div id="survival-score"></div>
+        </div>
+
+        <div class="system-controls">
+            <button id="btn-export" aria-label="Export Data" title="Export Backup">
+                <i class="ri-download-cloud-line"></i>
+            </button>
+            <button id="btn-import-trigger" aria-label="Import Data" title="Import Backup">
+                <i class="ri-upload-cloud-line"></i>
+            </button>
+            <input type="file" id="file-import" accept=".json" style="display: none;">
+        </div>
     </header>
 
     <nav id="main-nav">

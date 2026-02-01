@@ -1,11 +1,22 @@
 // Phase 5: Persistence - 'Brain' Foundation
 // Phase 6: Full Lifecycle & Polish
+// Phase 11: Inventory Management (Smart Quantity)
+// Phase 12: Layout Split & Census
 let appState = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadState();
-    setupAdminControls();
-    setupSystemControls();
+    setupSystemControls(); // Shared Header Logic
+
+    // Router Logic
+    const path = window.location.pathname;
+    if (path.includes('people.html')) {
+        renderCensus(appState);
+        // Setup Census specific controls if/when added (e.g. Add Person Modal)
+    } else {
+        renderDashboard(appState); // Default (Index)
+        setupAdminControls(); // Index specific modals (Resource/Alert)
+    }
 });
 
 // Debugging helper exposed to window
@@ -21,7 +32,6 @@ function loadState() {
         try {
             appState = JSON.parse(localData);
             console.log('Loaded from LocalStorage:', appState);
-            renderDashboard(appState);
             calculateSurvivalScore(appState);
             return;
         } catch (e) {
@@ -34,11 +44,11 @@ function loadState() {
         communityName: "My Community",
         resources: [],
         alerts: [],
+        people: [], // Replaces 'skills' from original mock, or we migrate if needed. V1.0 Clean Slate implies empty.
         lastUpdated: Date.now()
     };
     console.log('Initialized Empty State:', appState);
     saveState();
-    renderDashboard(appState);
     calculateSurvivalScore(appState);
 }
 
@@ -53,7 +63,6 @@ function saveState() {
     }
 }
 
-// Internal helper for Hard Reset
 function resetToFactorySettings() {
     console.warn('Resetting to Factory Settings...');
     localStorage.removeItem('civicData');
@@ -64,6 +73,8 @@ function calculateSurvivalScore(data) {
     const scoreElement = document.getElementById('survival-score');
     const header = document.getElementById('app-header');
 
+    if (!scoreElement || !header) return; // Guard for pages missing header elements (shouldn't happen with shared header)
+
     // Count Active Resources ("Good" or "Adequate")
     let activeResources = 0;
     if (data.resources) {
@@ -72,10 +83,12 @@ function calculateSurvivalScore(data) {
         ).length;
     }
 
-    // Count Skills
+    // Count Skills/People
     let skillCount = 0;
-    if (data.skills) {
-        skillCount = data.skills.length;
+    if (data.people) {
+        skillCount = data.people.length; // Assuming all people count as "Skills" for now, or filter by having a skill
+    } else if (data.skills) {
+        skillCount = data.skills.length; // Legacy support
     }
 
     // Formula: (Active Resources * 5) + (Skills * 10)
@@ -105,12 +118,10 @@ function renderDashboard(data) {
     const alertsContainer = document.getElementById('alerts-container');
     const resourcesGrid = document.getElementById('resources-grid');
 
-    // Clear existing content (keeping the headers is handled by structure changes, we clear containers now)
+    if (!alertsContainer || !resourcesGrid) return;
+
+    // Clear content
     alertsContainer.innerHTML = '';
-    // For resources grid, we need to be careful not to remove the H2 if it's inside (it is).
-    // Actually, in the HTML update, I put the H2 *inside* the section, but the container for alerts is new (#alerts-container).
-    // For resources, we are appending to #resources-grid directly which has the H2.
-    // Let's use the helper for resources-grid.
     clearContentAfterHeader(resourcesGrid);
 
     // Render Alerts
@@ -120,7 +131,6 @@ function renderDashboard(data) {
             alertsContainer.appendChild(alertCard);
         });
     } else {
-        // Zero State
         const safeCard = document.createElement('div');
         safeCard.className = 'card alert-safe';
         safeCard.innerHTML = `<h3><i class="ri-checkbox-circle-line"></i> Situation Normal</h3>`;
@@ -134,15 +144,66 @@ function renderDashboard(data) {
             resourcesGrid.appendChild(resourceCard);
         });
     } else {
-        // Zero State
         const emptyCard = document.createElement('div');
         emptyCard.className = 'card empty-resources';
-        emptyCard.style.gridColumn = "1 / -1"; // Full width
+        emptyCard.style.gridColumn = "1 / -1";
         emptyCard.style.textAlign = "center";
         emptyCard.style.border = "2px dashed var(--glass-border)";
         emptyCard.style.opacity = "0.6";
         emptyCard.innerHTML = `<h3>Inventory Empty. Click + to start.</h3>`;
         resourcesGrid.appendChild(emptyCard);
+    }
+}
+
+function renderCensus(data) {
+    const censusContainer = document.getElementById('census-container');
+    if (!censusContainer) return;
+
+    censusContainer.innerHTML = '';
+    // We assume a grid layout for census similar to resources, or list
+    // Let's use grid-like cards
+
+    const people = data.people || data.skills || []; // Fallback
+
+    if (people.length > 0) {
+        people.forEach((person) => {
+            const card = document.createElement('div');
+            card.className = 'card census-card';
+
+            // Layout: Avatar/Icon + Details
+            const header = document.createElement('div');
+            header.className = 'card-header';
+            header.innerHTML = `<i class="ri-user-smile-line"></i> <h3>${person.name}</h3>`;
+            card.appendChild(header);
+
+            const body = document.createElement('div');
+            body.className = 'card-body';
+
+            // Skill
+            if (person.skill) {
+                const skill = document.createElement('p');
+                skill.innerHTML = `<strong>Skill:</strong> ${person.skill}`;
+                body.appendChild(skill);
+            }
+
+            // Age (if available in future schema, currently using mock schema from prompt "Name, Age, Skill, Health Dot")
+            if (person.age) {
+                const age = document.createElement('p');
+                age.innerText = `Age: ${person.age}`;
+                body.appendChild(age);
+            }
+
+            // Health Dot (Visual Mockup)
+            const healthStatus = document.createElement('div');
+            healthStatus.className = 'health-status';
+            healthStatus.innerHTML = `<span class="health-dot healthy"></span> Healthy`; // Mock status
+            body.appendChild(healthStatus);
+
+            card.appendChild(body);
+            censusContainer.appendChild(card);
+        });
+    } else {
+        censusContainer.innerHTML = `<div class="card empty-resources" style="text-align:center; opacity:0.6; padding:2rem;"><h3>Directory Empty. Add residents to track skills.</h3></div>`;
     }
 }
 
@@ -156,7 +217,6 @@ function createAlertCard(alert, index) {
     const card = document.createElement('div');
     card.className = `card alert-card severity-${alert.severity.toLowerCase()}`;
 
-    // Dismiss Button
     const dismissBtn = document.createElement('button');
     dismissBtn.className = 'btn-dismiss';
     dismissBtn.innerHTML = '<i class="ri-close-line"></i>';
@@ -167,21 +227,17 @@ function createAlertCard(alert, index) {
     };
     card.appendChild(dismissBtn);
 
-    // Icon
     const icon = document.createElement('i');
     icon.className = getAlertIconClass(alert.severity);
     card.appendChild(icon);
 
-    // Content Wrapper
     const content = document.createElement('div');
     content.className = 'card-content';
 
-    // Message
     const message = document.createElement('h3');
     message.textContent = alert.message;
     content.appendChild(message);
 
-    // Meta (Severity & Timestamp)
     const meta = document.createElement('p');
     meta.textContent = `${alert.severity} • ${formatDate(alert.timestamp)}`;
     content.appendChild(meta);
@@ -194,7 +250,6 @@ function createResourceCard(resource, index) {
     const card = document.createElement('div');
     card.className = 'card resource-card';
 
-    // Trash Button
     const trashBtn = document.createElement('button');
     trashBtn.className = 'btn-trash';
     trashBtn.innerHTML = '<i class="ri-delete-bin-line"></i>';
@@ -208,7 +263,6 @@ function createResourceCard(resource, index) {
     };
     card.appendChild(trashBtn);
 
-    // Header
     const header = document.createElement('div');
     header.className = 'card-header';
 
@@ -222,7 +276,6 @@ function createResourceCard(resource, index) {
 
     card.appendChild(header);
 
-    // Body
     const body = document.createElement('div');
     body.className = 'card-body';
 
@@ -230,10 +283,40 @@ function createResourceCard(resource, index) {
     location.textContent = `Loc: ${resource.location}`;
     body.appendChild(location);
 
-    const quantity = document.createElement('p');
-    quantity.className = 'quantity';
-    quantity.textContent = resource.quantity;
-    body.appendChild(quantity);
+    const quantityRow = document.createElement('div');
+    quantityRow.className = 'quantity-row';
+
+    // Smart Quantity Logic: Check if there is a number
+    // Regex: Start with Number (Group 1), then Unit (Group 2)
+    const qtyMatch = resource.quantity.match(/^([\d\.]+)(\s*.*)$/);
+
+    if (qtyMatch) {
+        const minusBtn = document.createElement('button');
+        minusBtn.className = 'qty-btn';
+        minusBtn.textContent = '-';
+        minusBtn.onclick = () => updateQuantity(index, -1);
+
+        const qtyText = document.createElement('span');
+        qtyText.className = 'quantity';
+        qtyText.textContent = resource.quantity;
+
+        const plusBtn = document.createElement('button');
+        plusBtn.className = 'qty-btn';
+        plusBtn.textContent = '+';
+        plusBtn.onclick = () => updateQuantity(index, 1);
+
+        quantityRow.appendChild(minusBtn);
+        quantityRow.appendChild(qtyText);
+        quantityRow.appendChild(plusBtn);
+    } else {
+        // Fallback for non-numeric quantities
+        const qtyText = document.createElement('span');
+        qtyText.className = 'quantity';
+        qtyText.textContent = resource.quantity;
+        quantityRow.appendChild(qtyText);
+    }
+
+    body.appendChild(quantityRow);
 
     const status = document.createElement('span');
     status.className = `status-badge status-${resource.status.toLowerCase()}`;
@@ -243,6 +326,39 @@ function createResourceCard(resource, index) {
     card.appendChild(body);
 
     return card;
+}
+
+function updateQuantity(index, change) {
+    const resource = appState.resources[index];
+    // Regex: Start with Number (Group 1), then Unit (Group 2)
+    const match = resource.quantity.match(/^([\d\.]+)(\s*.*)$/);
+
+    if (!match) return;
+
+    let currentVal = parseFloat(match[1]);
+    let newVal = currentVal + change;
+
+    // Round to avoid floating point errors
+    newVal = Math.round(newVal * 100) / 100;
+
+    if (newVal <= 0) {
+        if (confirm("Remove this item?")) {
+            appState.resources.splice(index, 1);
+            saveState();
+            renderDashboard(appState);
+            calculateSurvivalScore(appState);
+            return;
+        } else {
+            // User cancelled delete, set to 0
+            newVal = 0;
+        }
+    }
+
+    // Reconstruct string
+    resource.quantity = newVal + match[2];
+
+    saveState();
+    renderDashboard(appState);
 }
 
 function formatDate(timestamp) {
@@ -261,32 +377,34 @@ function setupAdminControls() {
     const form = document.getElementById('resource-form');
     const cancelBtn = document.getElementById('btn-cancel');
 
-    fab.addEventListener('click', () => modal.showModal());
-    cancelBtn.addEventListener('click', () => modal.close());
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.close();
-    });
+    if (fab) {
+        fab.addEventListener('click', () => modal.showModal());
+        cancelBtn.addEventListener('click', () => modal.close());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.close();
+        });
 
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const newResource = {
-            id: Date.now().toString(),
-            type: document.getElementById('input-type').value,
-            location: document.getElementById('input-location').value,
-            quantity: document.getElementById('input-quantity').value,
-            status: document.getElementById('input-status').value
-        };
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newResource = {
+                id: Date.now().toString(),
+                type: document.getElementById('input-type').value,
+                location: document.getElementById('input-location').value,
+                quantity: document.getElementById('input-quantity').value,
+                status: document.getElementById('input-status').value
+            };
 
-        if (!appState.resources) appState.resources = [];
-        appState.resources.push(newResource);
+            if (!appState.resources) appState.resources = [];
+            appState.resources.push(newResource);
 
-        saveState();
-        renderDashboard(appState);
-        calculateSurvivalScore(appState);
+            saveState();
+            renderDashboard(appState);
+            calculateSurvivalScore(appState);
 
-        form.reset();
-        modal.close();
-    });
+            form.reset();
+            modal.close();
+        });
+    }
 
     // Alert Modal
     const addAlertBtn = document.getElementById('add-alert-btn');
@@ -294,31 +412,32 @@ function setupAdminControls() {
     const alertForm = document.getElementById('alert-form');
     const cancelAlertBtn = document.getElementById('btn-cancel-alert');
 
-    addAlertBtn.addEventListener('click', () => alertModal.showModal());
-    cancelAlertBtn.addEventListener('click', () => alertModal.close());
-    alertModal.addEventListener('click', (e) => {
-        if (e.target === alertModal) alertModal.close();
-    });
+    if (addAlertBtn) {
+        addAlertBtn.addEventListener('click', () => alertModal.showModal());
+        cancelAlertBtn.addEventListener('click', () => alertModal.close());
+        alertModal.addEventListener('click', (e) => {
+            if (e.target === alertModal) alertModal.close();
+        });
 
-    alertForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const newAlert = {
-            id: Date.now().toString(),
-            message: document.getElementById('alert-message').value,
-            severity: document.getElementById('alert-severity').value,
-            timestamp: Date.now() // Use current time
-        };
+        alertForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newAlert = {
+                id: Date.now().toString(),
+                message: document.getElementById('alert-message').value,
+                severity: document.getElementById('alert-severity').value,
+                timestamp: Date.now()
+            };
 
-        if (!appState.alerts) appState.alerts = [];
-        // Add to TOP of list
-        appState.alerts.unshift(newAlert);
+            if (!appState.alerts) appState.alerts = [];
+            appState.alerts.unshift(newAlert);
 
-        saveState();
-        renderDashboard(appState);
+            saveState();
+            renderDashboard(appState);
 
-        alertForm.reset();
-        alertModal.close();
-    });
+            alertForm.reset();
+            alertModal.close();
+        });
+    }
 }
 
 function setupSystemControls() {
@@ -326,31 +445,33 @@ function setupSystemControls() {
     const btnImportTrigger = document.getElementById('btn-import-trigger');
     const fileImport = document.getElementById('file-import');
 
-    btnExport.addEventListener('click', exportData);
-    btnImportTrigger.addEventListener('click', () => fileImport.click());
+    if (btnExport) btnExport.addEventListener('click', exportData);
+    if (btnImportTrigger) btnImportTrigger.addEventListener('click', () => fileImport.click());
 
-    fileImport.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
+    if (fileImport) {
+        fileImport.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const importedData = JSON.parse(e.target.result);
-                if (!importedData.resources || !Array.isArray(importedData.resources)) {
-                    alert("Invalid Backup File");
-                    return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!importedData.resources || !Array.isArray(importedData.resources)) {
+                        alert("Invalid Backup File");
+                        return;
+                    }
+                    appState = importedData;
+                    saveState();
+                    location.reload();
+                } catch (err) {
+                    console.error("Error importing file", err);
+                    alert("Invalid JSON File");
                 }
-                appState = importedData;
-                saveState();
-                location.reload();
-            } catch (err) {
-                console.error("Error importing file", err);
-                alert("Invalid JSON File");
-            }
-        };
-        reader.readAsText(file);
-    });
+            };
+            reader.readAsText(file);
+        });
+    }
 }
 
 function exportData() {

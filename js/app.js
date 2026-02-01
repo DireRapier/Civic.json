@@ -4,6 +4,7 @@ let appState = null;
 document.addEventListener('DOMContentLoaded', () => {
     loadState();
     setupAdminControls();
+    setupSystemControls();
 });
 
 // Debugging helper exposed to window
@@ -291,6 +292,64 @@ function setupAdminControls() {
         form.reset();
         modal.close();
     });
+}
+
+function setupSystemControls() {
+    const btnExport = document.getElementById('btn-export');
+    const btnImportTrigger = document.getElementById('btn-import-trigger');
+    const fileImport = document.getElementById('file-import');
+
+    // Export Logic
+    btnExport.addEventListener('click', exportData);
+
+    // Import Trigger
+    btnImportTrigger.addEventListener('click', () => {
+        fileImport.click();
+    });
+
+    // Import Logic
+    fileImport.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+
+                // Sanity Check
+                if (!importedData.resources || !Array.isArray(importedData.resources)) {
+                    alert("Invalid Backup File");
+                    return;
+                }
+
+                // Update State
+                appState = importedData;
+                saveState();
+                location.reload();
+
+            } catch (err) {
+                console.error("Error importing file", err);
+                alert("Invalid JSON File");
+            }
+        };
+        reader.readAsText(file);
+    });
+}
+
+function exportData() {
+    if (!appState) return;
+    const dataStr = JSON.stringify(appState, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", url);
+    downloadAnchorNode.setAttribute("download", `civic-backup-${Date.now()}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    URL.revokeObjectURL(url);
 }
 
 function getAlertIconClass(severity) {

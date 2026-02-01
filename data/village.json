@@ -1,0 +1,108 @@
+{
+  "communityInfo": {
+    "name": "Resiliencia Valley",
+    "coordinates": {
+      "lat": 14.599,
+      "lng": 120.984
+    },
+    "lastUpdated": "2023-10-27T10:00:00Z"
+  },
+  "resources": [
+    {
+      "id": "res-001",
+      "type": "Water",
+      "location": "Community Center Tank",
+      "quantity": "5000 Liters",
+      "status": "Good"
+    },
+    {
+      "id": "res-002",
+      "type": "Food",
+      "location": "School Pantry",
+      "quantity": "200 Ration Packs",
+      "status": "Critical"
+    },
+    {
+      "id": "res-003",
+      "type": "Energy",
+      "location": "Solar Microgrid A",
+      "quantity": "85% Battery",
+      "status": "Good"
+    },
+    {
+      "id": "res-004",
+      "type": "Medical",
+      "location": "Clinic Storage",
+      "quantity": "50 First Aid Kits",
+      "status": "Adequate"
+    }
+  ],
+  "skills": [
+    {
+      "id": "skill-001",
+      "name": "Maria Santos",
+      "skill": "Medic",
+      "contactInfo": {
+        "radioChannel": "104.5 FM",
+        "walkieTalkie": "Ch 5",
+        "runner": "House 12"
+      }
+    },
+    {
+      "id": "skill-002",
+      "name": "Juan Reyes",
+      "skill": "Mechanic",
+      "contactInfo": {
+        "radioChannel": "104.5 FM",
+        "walkieTalkie": "Ch 3",
+        "runner": "Workshop B"
+      }
+    },
+    {
+      "id": "skill-003",
+      "name": "Elena Cruz",
+      "skill": "Communications",
+      "contactInfo": {
+        "radioChannel": "104.5 FM",
+        "walkieTalkie": "Ch 1",
+        "runner": "Radio Tower"
+      }
+    },
+    {
+      "id": "skill-004",
+      "name": "David Chen",
+      "skill": "Electrician",
+      "contactInfo": {
+        "radioChannel": "104.5 FM",
+        "walkieTalkie": "Ch 4",
+        "runner": "House 24"
+      }
+    }
+  ],
+  "alerts": [
+    {
+      "id": "alert-001",
+      "severity": "High",
+      "message": "Storm Incoming",
+      "timestamp": "2023-10-27T08:30:00Z"
+    },
+    {
+      "id": "alert-002",
+      "severity": "Medium",
+      "message": "River Rising",
+      "timestamp": "2023-10-27T09:15:00Z"
+    },
+    {
+      "id": "alert-003",
+      "severity": "Low",
+      "message": "Power Fluctuation",
+      "timestamp": "2023-10-27T09:45:00Z"
+    },
+    {
+      "id": "alert-004",
+      "severity": "Info",
+      "message": "Community Meeting at 14:00",
+      "timestamp": "2023-10-27T07:00:00Z"
+    }
+  ]
+}

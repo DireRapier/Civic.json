@@ -368,6 +368,44 @@ i {
 .health-dot.status-sick { background-color: var(--health-sick); box-shadow: 0 0 5px var(--health-sick); }
 .health-dot.status-deceased { background-color: var(--health-deceased); }
 
+/* Key Metrics in Header */
+.key-metrics {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    justify-content: center;
+}
+
+.key-metrics span {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.key-metrics i {
+    font-size: 1.2rem;
+    color: var(--color-primary);
+}
+
+/* Sidebar Bottom Link */
+.nav-bottom {
+    margin-top: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+}
+
+@media (max-width: 768px) {
+    .nav-bottom {
+        border-top: none;
+        margin-top: 0;
+        border-radius: var(--radius-md);
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+    }
+}
+
 /* Dismiss/Edit/Delete Buttons */
 .btn-dismiss, .btn-trash, .btn-edit {
     position: absolute;

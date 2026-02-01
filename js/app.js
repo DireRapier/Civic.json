@@ -1,4 +1,5 @@
 // Phase 5: Persistence - 'Brain' Foundation
+// Phase 6: Full Lifecycle & Polish
 let appState = null;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,34 +23,23 @@ function loadState() {
             console.log('Loaded from LocalStorage:', appState);
             renderDashboard(appState);
             calculateSurvivalScore(appState);
-            return; // Exit early, do not fetch
+            return;
         } catch (e) {
-            console.error('LocalStorage corrupted, falling back to factory defaults.', e);
+            console.error('LocalStorage corrupted, resetting.', e);
         }
     }
 
-    // 2. Fallback to Factory Defaults (JSON fetch)
-    fetch('data/village.json')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            appState = data;
-            console.log('Initialized from Factory Defaults:', appState);
-            saveState(); // Initialize LocalStorage
-            renderDashboard(appState);
-            calculateSurvivalScore(appState);
-        })
-        .catch(error => {
-            console.error('Fetch error:', error);
-            // Only show error if we have NO data at all
-            if (!appState) {
-                renderErrorState();
-            }
-        });
+    // 2. Initialize Empty State (Clean Slate)
+    appState = {
+        communityName: "My Community",
+        resources: [],
+        alerts: [],
+        lastUpdated: Date.now()
+    };
+    console.log('Initialized Empty State:', appState);
+    saveState();
+    renderDashboard(appState);
+    calculateSurvivalScore(appState);
 }
 
 function saveState() {
@@ -63,7 +53,7 @@ function saveState() {
     }
 }
 
-// Internal helper for Hard Reset (to be wired later)
+// Internal helper for Hard Reset
 function resetToFactorySettings() {
     console.warn('Resetting to Factory Settings...');
     localStorage.removeItem('civicData');
@@ -109,50 +99,73 @@ function calculateSurvivalScore(data) {
     }
 
     header.style.borderBottom = `4px solid ${borderColor}`;
-
-    console.log(`Survival Score Calculation:
-    Active Resources: ${activeResources} (* 5 = ${activeResources * 5})
-    Skills: ${skillCount} (* 10 = ${skillCount * 10})
-    Total: ${rawScore} (Clamped: ${finalScore})
-    Status Color: ${borderColor}`);
 }
 
 function renderDashboard(data) {
-    const alertsFeed = document.getElementById('alerts-feed');
+    const alertsContainer = document.getElementById('alerts-container');
     const resourcesGrid = document.getElementById('resources-grid');
 
-    // Clear existing content (keeping the headers)
-    clearContentAfterHeader(alertsFeed);
+    // Clear existing content (keeping the headers is handled by structure changes, we clear containers now)
+    alertsContainer.innerHTML = '';
+    // For resources grid, we need to be careful not to remove the H2 if it's inside (it is).
+    // Actually, in the HTML update, I put the H2 *inside* the section, but the container for alerts is new (#alerts-container).
+    // For resources, we are appending to #resources-grid directly which has the H2.
+    // Let's use the helper for resources-grid.
     clearContentAfterHeader(resourcesGrid);
 
     // Render Alerts
     if (data.alerts && data.alerts.length > 0) {
-        data.alerts.forEach(alert => {
-            const alertCard = createAlertCard(alert);
-            alertsFeed.appendChild(alertCard);
+        data.alerts.forEach((alert, index) => {
+            const alertCard = createAlertCard(alert, index);
+            alertsContainer.appendChild(alertCard);
         });
+    } else {
+        // Zero State
+        const safeCard = document.createElement('div');
+        safeCard.className = 'card alert-safe';
+        safeCard.innerHTML = `<h3><i class="ri-checkbox-circle-line"></i> Situation Normal</h3>`;
+        alertsContainer.appendChild(safeCard);
     }
 
     // Render Resources
     if (data.resources && data.resources.length > 0) {
-        data.resources.forEach(resource => {
-            const resourceCard = createResourceCard(resource);
+        data.resources.forEach((resource, index) => {
+            const resourceCard = createResourceCard(resource, index);
             resourcesGrid.appendChild(resourceCard);
         });
+    } else {
+        // Zero State
+        const emptyCard = document.createElement('div');
+        emptyCard.className = 'card empty-resources';
+        emptyCard.style.gridColumn = "1 / -1"; // Full width
+        emptyCard.style.textAlign = "center";
+        emptyCard.style.border = "2px dashed var(--glass-border)";
+        emptyCard.style.opacity = "0.6";
+        emptyCard.innerHTML = `<h3>Inventory Empty. Click + to start.</h3>`;
+        resourcesGrid.appendChild(emptyCard);
     }
 }
 
 function clearContentAfterHeader(container) {
-    // Keep the h2, remove everything else
-    // We start from the end to safely remove nodes
     while (container.lastElementChild && container.lastElementChild.tagName !== 'H2') {
         container.removeChild(container.lastElementChild);
     }
 }
 
-function createAlertCard(alert) {
+function createAlertCard(alert, index) {
     const card = document.createElement('div');
     card.className = `card alert-card severity-${alert.severity.toLowerCase()}`;
+
+    // Dismiss Button
+    const dismissBtn = document.createElement('button');
+    dismissBtn.className = 'btn-dismiss';
+    dismissBtn.innerHTML = '<i class="ri-close-line"></i>';
+    dismissBtn.onclick = () => {
+        appState.alerts.splice(index, 1);
+        saveState();
+        renderDashboard(appState);
+    };
+    card.appendChild(dismissBtn);
 
     // Icon
     const icon = document.createElement('i');
@@ -170,17 +183,30 @@ function createAlertCard(alert) {
 
     // Meta (Severity & Timestamp)
     const meta = document.createElement('p');
-    const date = new Date(alert.timestamp).toLocaleTimeString();
-    meta.textContent = `${alert.severity} • ${date}`;
+    meta.textContent = `${alert.severity} • ${formatDate(alert.timestamp)}`;
     content.appendChild(meta);
 
     card.appendChild(content);
     return card;
 }
 
-function createResourceCard(resource) {
+function createResourceCard(resource, index) {
     const card = document.createElement('div');
     card.className = 'card resource-card';
+
+    // Trash Button
+    const trashBtn = document.createElement('button');
+    trashBtn.className = 'btn-trash';
+    trashBtn.innerHTML = '<i class="ri-delete-bin-line"></i>';
+    trashBtn.onclick = () => {
+        if (confirm("Remove this item?")) {
+            appState.resources.splice(index, 1);
+            saveState();
+            renderDashboard(appState);
+            calculateSurvivalScore(appState);
+        }
+    };
+    card.appendChild(trashBtn);
 
     // Header
     const header = document.createElement('div');
@@ -219,78 +245,79 @@ function createResourceCard(resource) {
     return card;
 }
 
-function renderErrorState() {
-    const main = document.getElementById('dashboard-grid');
-
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-state';
-    errorDiv.textContent = '⚠ CONNECTION LOST: LOAD LOCAL BACKUP.';
-
-    // In strict emergency mode, we might want to clear everything or just append
-    // The requirement says "inject a div", let's append it to the top or replace content?
-    // User said "If the Fetch fails, inject a div... into the <main> container."
-    // Let's clear the main container to be safe and show only the error as it seems like a replacement.
-    main.innerHTML = '';
-    main.appendChild(errorDiv);
+function formatDate(timestamp) {
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(new Date(timestamp));
 }
 
 function setupAdminControls() {
+    // Resource Modal
     const fab = document.getElementById('admin-toggle');
     const modal = document.getElementById('edit-modal');
     const form = document.getElementById('resource-form');
     const cancelBtn = document.getElementById('btn-cancel');
 
-    // Open Modal
-    fab.addEventListener('click', () => {
-        modal.showModal();
-    });
-
-    // Close Modal (Cancel)
-    cancelBtn.addEventListener('click', () => {
-        modal.close();
-    });
-
-    // Close Modal (Backdrop Click)
+    fab.addEventListener('click', () => modal.showModal());
+    cancelBtn.addEventListener('click', () => modal.close());
     modal.addEventListener('click', (e) => {
-        const rect = modal.getBoundingClientRect();
-        const isInDialog = (rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
-                          rect.left <= e.clientX && e.clientX <= rect.left + rect.width);
-        if (!isInDialog) {
-            modal.close();
-        }
+        if (e.target === modal) modal.close();
     });
 
-    // Handle Submit
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-
-        const type = document.getElementById('input-type').value;
-        const location = document.getElementById('input-location').value;
-        const quantity = document.getElementById('input-quantity').value;
-        const status = document.getElementById('input-status').value;
-
         const newResource = {
             id: Date.now().toString(),
-            type: type,
-            location: location,
-            quantity: quantity,
-            status: status
+            type: document.getElementById('input-type').value,
+            location: document.getElementById('input-location').value,
+            quantity: document.getElementById('input-quantity').value,
+            status: document.getElementById('input-status').value
         };
 
-        // Add to state
-        if (!appState.resources) {
-            appState.resources = [];
-        }
+        if (!appState.resources) appState.resources = [];
         appState.resources.push(newResource);
 
-        // Save & Render
         saveState();
         renderDashboard(appState);
         calculateSurvivalScore(appState);
 
-        // Reset & Close
         form.reset();
         modal.close();
+    });
+
+    // Alert Modal
+    const addAlertBtn = document.getElementById('add-alert-btn');
+    const alertModal = document.getElementById('alert-modal');
+    const alertForm = document.getElementById('alert-form');
+    const cancelAlertBtn = document.getElementById('btn-cancel-alert');
+
+    addAlertBtn.addEventListener('click', () => alertModal.showModal());
+    cancelAlertBtn.addEventListener('click', () => alertModal.close());
+    alertModal.addEventListener('click', (e) => {
+        if (e.target === alertModal) alertModal.close();
+    });
+
+    alertForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const newAlert = {
+            id: Date.now().toString(),
+            message: document.getElementById('alert-message').value,
+            severity: document.getElementById('alert-severity').value,
+            timestamp: Date.now() // Use current time
+        };
+
+        if (!appState.alerts) appState.alerts = [];
+        // Add to TOP of list
+        appState.alerts.unshift(newAlert);
+
+        saveState();
+        renderDashboard(appState);
+
+        alertForm.reset();
+        alertModal.close();
     });
 }
 
@@ -299,15 +326,9 @@ function setupSystemControls() {
     const btnImportTrigger = document.getElementById('btn-import-trigger');
     const fileImport = document.getElementById('file-import');
 
-    // Export Logic
     btnExport.addEventListener('click', exportData);
+    btnImportTrigger.addEventListener('click', () => fileImport.click());
 
-    // Import Trigger
-    btnImportTrigger.addEventListener('click', () => {
-        fileImport.click();
-    });
-
-    // Import Logic
     fileImport.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -316,18 +337,13 @@ function setupSystemControls() {
         reader.onload = (e) => {
             try {
                 const importedData = JSON.parse(e.target.result);
-
-                // Sanity Check
                 if (!importedData.resources || !Array.isArray(importedData.resources)) {
                     alert("Invalid Backup File");
                     return;
                 }
-
-                // Update State
                 appState = importedData;
                 saveState();
                 location.reload();
-
             } catch (err) {
                 console.error("Error importing file", err);
                 alert("Invalid JSON File");
@@ -354,9 +370,9 @@ function exportData() {
 
 function getAlertIconClass(severity) {
     switch (severity.toLowerCase()) {
-        case 'high': return 'ri-alarm-warning-fill';
-        case 'medium': return 'ri-error-warning-fill';
-        case 'low': return 'ri-information-fill';
+        case 'critical': return 'ri-alarm-warning-fill';
+        case 'warning': return 'ri-error-warning-fill';
+        case 'info': return 'ri-information-fill';
         default: return 'ri-notification-line';
     }
 }

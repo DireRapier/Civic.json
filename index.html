@@ -37,8 +37,15 @@
 
     <main id="dashboard-grid">
         <section id="alerts-feed">
-            <h2><i class="ri-alarm-warning-line"></i> Alerts</h2>
-            <!-- Alerts will be injected here -->
+            <div class="section-header">
+                <h2><i class="ri-alarm-warning-line"></i> Status Feed</h2>
+                <button id="add-alert-btn" class="icon-btn" aria-label="Add Alert">
+                    <i class="ri-add-circle-line"></i>
+                </button>
+            </div>
+            <div id="alerts-container">
+                <!-- Alerts will be injected here -->
+            </div>
         </section>
 
         <section id="resources-grid">
@@ -95,6 +102,32 @@
             <div class="form-actions">
                 <button type="button" id="btn-cancel" class="btn-secondary">Cancel</button>
                 <button type="submit" class="btn-primary">Save Change</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Add Alert Modal -->
+    <dialog id="alert-modal">
+        <form id="alert-form">
+            <h2>Add Alert</h2>
+
+            <div class="form-group">
+                <label for="alert-message">Message</label>
+                <input type="text" id="alert-message" placeholder="e.g. Storm Approaching" required>
+            </div>
+
+            <div class="form-group">
+                <label for="alert-severity">Severity</label>
+                <select id="alert-severity" required>
+                    <option value="Critical">Critical</option>
+                    <option value="Warning">Warning</option>
+                    <option value="Info">Info</option>
+                </select>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" id="btn-cancel-alert" class="btn-secondary">Cancel</button>
+                <button type="submit" class="btn-primary">Post Alert</button>
             </div>
         </form>
     </dialog>

@@ -3,6 +3,7 @@ let appState = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadState();
+    setupAdminControls();
 });
 
 // Debugging helper exposed to window
@@ -232,6 +233,66 @@ function renderErrorState() {
     main.appendChild(errorDiv);
 }
 
+function setupAdminControls() {
+    const fab = document.getElementById('admin-toggle');
+    const modal = document.getElementById('edit-modal');
+    const form = document.getElementById('resource-form');
+    const cancelBtn = document.getElementById('btn-cancel');
+
+    // Open Modal
+    fab.addEventListener('click', () => {
+        modal.showModal();
+    });
+
+    // Close Modal (Cancel)
+    cancelBtn.addEventListener('click', () => {
+        modal.close();
+    });
+
+    // Close Modal (Backdrop Click)
+    modal.addEventListener('click', (e) => {
+        const rect = modal.getBoundingClientRect();
+        const isInDialog = (rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
+                          rect.left <= e.clientX && e.clientX <= rect.left + rect.width);
+        if (!isInDialog) {
+            modal.close();
+        }
+    });
+
+    // Handle Submit
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const type = document.getElementById('input-type').value;
+        const location = document.getElementById('input-location').value;
+        const quantity = document.getElementById('input-quantity').value;
+        const status = document.getElementById('input-status').value;
+
+        const newResource = {
+            id: Date.now().toString(),
+            type: type,
+            location: location,
+            quantity: quantity,
+            status: status
+        };
+
+        // Add to state
+        if (!appState.resources) {
+            appState.resources = [];
+        }
+        appState.resources.push(newResource);
+
+        // Save & Render
+        saveState();
+        renderDashboard(appState);
+        calculateSurvivalScore(appState);
+
+        // Reset & Close
+        form.reset();
+        modal.close();
+    });
+}
+
 function getAlertIconClass(severity) {
     switch (severity.toLowerCase()) {
         case 'high': return 'ri-alarm-warning-fill';
@@ -247,6 +308,7 @@ function getResourceIconClass(type) {
         case 'food': return 'ri-goblet-fill';
         case 'energy': return 'ri-battery-charge-fill';
         case 'medical': return 'ri-first-aid-kit-fill';
+        case 'comms': return 'ri-broadcast-fill';
         default: return 'ri-box-3-fill';
     }
 }

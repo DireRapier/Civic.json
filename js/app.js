@@ -1,13 +1,13 @@
-// Phase 13: The Master Update (Full Editing & Census)
+// Phase 14: Identity & Intelligence
 let appState = null;
 let editingResourceId = null;
 let editingPersonId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadState();
-    setupSystemControls(); // Shared Header Logic
+    setupSystemControls();
+    setupGovernanceControls(); // New Governance logic
 
-    // Router Logic
     const path = window.location.pathname;
     if (path.includes('people.html')) {
         renderCensus(appState);
@@ -19,29 +19,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Debugging helper exposed to window
+// Debugging helper
 window.debugState = () => console.log('Current App State:', appState);
 
 function loadState() {
     console.log('Initializing Civic.json Engine...');
 
-    // 1. Check LocalStorage
     const localData = localStorage.getItem('civicData');
 
     if (localData) {
         try {
             appState = JSON.parse(localData);
+            // Migration for communityInfo if missing
+            if (!appState.communityInfo) {
+                appState.communityInfo = {
+                    name: appState.communityName || "Purok OS",
+                    captain: "",
+                    location: ""
+                };
+            }
             console.log('Loaded from LocalStorage:', appState);
-            calculateSurvivalScore(appState);
+            calculateStats(appState); // New Stats logic
+            updateBrand();
             return;
         } catch (e) {
             console.error('LocalStorage corrupted, resetting.', e);
         }
     }
 
-    // 2. Initialize Empty State (Clean Slate)
     appState = {
-        communityName: "My Community",
+        communityInfo: {
+            name: "My Community",
+            captain: "",
+            location: ""
+        },
         resources: [],
         alerts: [],
         people: [],
@@ -49,7 +60,8 @@ function loadState() {
     };
     console.log('Initialized Empty State:', appState);
     saveState();
-    calculateSurvivalScore(appState);
+    calculateStats(appState);
+    updateBrand();
 }
 
 function saveState() {
@@ -63,13 +75,53 @@ function saveState() {
     }
 }
 
-function calculateSurvivalScore(data) {
+function updateBrand() {
+    const brandElements = document.querySelectorAll('#app-brand');
+    brandElements.forEach(el => {
+        if (appState.communityInfo && appState.communityInfo.name) {
+            el.textContent = appState.communityInfo.name;
+        }
+    });
+}
+
+function calculateStats(data) {
     const scoreElement = document.getElementById('survival-score');
     const header = document.getElementById('app-header');
 
     if (!scoreElement || !header) return;
 
-    // Count Active Resources ("Good" or "Adequate")
+    // 1. Population Count
+    const pop = data.people ? data.people.length : 0;
+
+    // 2. Medics Count (Case insensitive check)
+    let medics = 0;
+    if (data.people) {
+        medics = data.people.filter(p => {
+            const skill = (p.skill || "").toLowerCase();
+            return skill.includes('medic') || skill.includes('doctor') || skill.includes('nurse');
+        }).length;
+    }
+
+    // 3. Water Summation (Unit Converter)
+    let waterTotal = 0;
+    if (data.resources) {
+        data.resources.forEach(r => {
+            if (r.type === 'Water') {
+                const match = r.quantity.match(/^([\d\.]+)(\s*.*)$/);
+                if (match) {
+                    let val = parseFloat(match[1]);
+                    const unit = match[2].toLowerCase();
+                    if (unit.includes('gal')) {
+                        val = val * 3.78; // Convert Gallons to Liters
+                    }
+                    waterTotal += val;
+                }
+            }
+        });
+    }
+
+    // 4. Resilience Score (Background Logic for Border Color)
+    // Active Resources + Skills (All Living)
     let activeResources = 0;
     if (data.resources) {
         activeResources = data.resources.filter(r =>
@@ -77,39 +129,33 @@ function calculateSurvivalScore(data) {
         ).length;
     }
 
-    // Count Skills/People (Healthy only? Or all? Prompt said "Count Skills available")
-    // Let's assume all alive people count for now, or maybe only Healthy/Injured but not Sick/Deceased?
-    // The previous logic was just length. Let's keep it simple or maybe refine based on Health Status.
-    // "Human skills are the most critical asset". Sick people can't work well.
-    // Let's count Healthy and Injured (maybe?) as available. Or just all Living.
-    // Given no specific instruction to change scoring logic this turn, I'll stick to length of people array.
-    // BUT wait, "Deceased" is an option now. They definitely shouldn't count.
-
-    let skillCount = 0;
+    // Count Living People
+    let livingCount = 0;
     if (data.people) {
-        skillCount = data.people.filter(p => p.health !== 'Deceased').length;
-    } else if (data.skills) {
-        skillCount = data.skills.length; // Legacy
+        livingCount = data.people.filter(p => p.health !== 'Deceased').length;
     }
 
-    // Formula: (Active Resources * 5) + (Skills * 10)
-    let rawScore = (activeResources * 5) + (skillCount * 10);
-
-    // Clamp to 100
+    // Formula: (Active Resources * 5) + (Living * 10)
+    let rawScore = (activeResources * 5) + (livingCount * 10);
     const finalScore = Math.min(rawScore, 100);
 
-    // Update UI
-    scoreElement.textContent = `Survival Score: ${finalScore}%`;
-    scoreElement.style.fontWeight = 'bold';
-    scoreElement.style.marginTop = '0.5rem';
+    // Update Header Text (Key Metrics)
+    scoreElement.innerHTML = `
+        <div class="key-metrics">
+            <span><i class="ri-group-line"></i> Pop: ${pop}</span>
+            <span><i class="ri-drop-line"></i> Water: ${waterTotal.toFixed(0)} L</span>
+            <span><i class="ri-nurse-line"></i> Medics: ${medics}</span>
+        </div>
+    `;
 
-    // Update Header Border based on Score
-    let borderColor = '#e74c3c'; // Default Red (< 50)
+    // Update Header Border based on Resilience Score
+    // < 30 Red, > 70 Green
+    let borderColor = '#f1c40f'; // Default Yellow
 
-    if (finalScore >= 80) {
+    if (finalScore < 30) {
+        borderColor = '#e74c3c'; // Red
+    } else if (finalScore > 70) {
         borderColor = '#27ae60'; // Green
-    } else if (finalScore >= 50) {
-        borderColor = '#f1c40f'; // Yellow
     }
 
     header.style.borderBottom = `4px solid ${borderColor}`;
@@ -125,7 +171,6 @@ function renderDashboard(data) {
 
     if (!alertsContainer || !resourcesGrid) return;
 
-    // Clear content
     alertsContainer.innerHTML = '';
     clearContentAfterHeader(resourcesGrid);
 
@@ -173,21 +218,18 @@ function renderCensus(data) {
             const card = document.createElement('div');
             card.className = 'card census-card';
 
-            // Edit Button
             const editBtn = document.createElement('button');
             editBtn.className = 'btn-edit';
             editBtn.innerHTML = '<i class="ri-pencil-line"></i>';
             editBtn.onclick = () => openPersonModal(person.id);
             card.appendChild(editBtn);
 
-            // Delete Button
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn-trash';
             deleteBtn.innerHTML = '<i class="ri-delete-bin-line"></i>';
             deleteBtn.onclick = () => deletePerson(index);
             card.appendChild(deleteBtn);
 
-            // Layout
             const header = document.createElement('div');
             header.className = 'card-header';
             header.innerHTML = `<i class="ri-user-smile-line"></i> <h3>${person.name}</h3>`;
@@ -196,12 +238,10 @@ function renderCensus(data) {
             const body = document.createElement('div');
             body.className = 'card-body';
 
-            // Details
             const details = document.createElement('p');
             details.innerHTML = `${person.age} / ${person.gender} <br> <strong>${person.skill}</strong>`;
             body.appendChild(details);
 
-            // Contact
             if (person.contact) {
                 const contact = document.createElement('p');
                 contact.style.fontSize = '0.9rem';
@@ -210,7 +250,6 @@ function renderCensus(data) {
                 body.appendChild(contact);
             }
 
-            // Health Dot
             const healthStatus = document.createElement('div');
             healthStatus.className = 'health-status';
             healthStatus.innerHTML = `<span class="health-dot status-${person.health.toLowerCase()}"></span> ${person.health}`;
@@ -271,14 +310,12 @@ function createResourceCard(resource, index) {
     const card = document.createElement('div');
     card.className = 'card resource-card';
 
-    // Edit Button
     const editBtn = document.createElement('button');
     editBtn.className = 'btn-edit';
     editBtn.innerHTML = '<i class="ri-pencil-line"></i>';
     editBtn.onclick = () => openResourceModal(resource.id);
     card.appendChild(editBtn);
 
-    // Trash Button
     const trashBtn = document.createElement('button');
     trashBtn.className = 'btn-trash';
     trashBtn.innerHTML = '<i class="ri-delete-bin-line"></i>';
@@ -287,12 +324,11 @@ function createResourceCard(resource, index) {
             appState.resources.splice(index, 1);
             saveState();
             renderDashboard(appState);
-            calculateSurvivalScore(appState);
+            calculateStats(appState);
         }
     };
     card.appendChild(trashBtn);
 
-    // Content
     const header = document.createElement('div');
     header.className = 'card-header';
     const icon = document.createElement('i');
@@ -313,7 +349,6 @@ function createResourceCard(resource, index) {
     const quantityRow = document.createElement('div');
     quantityRow.className = 'quantity-row';
 
-    // Smart Quantity
     const qtyMatch = resource.quantity.match(/^([\d\.]+)(\s*.*)$/);
     if (qtyMatch) {
         const minusBtn = document.createElement('button');
@@ -369,7 +404,7 @@ function updateQuantity(index, change) {
             appState.resources.splice(index, 1);
             saveState();
             renderDashboard(appState);
-            calculateSurvivalScore(appState);
+            calculateStats(appState);
             return;
         } else {
             newVal = 0;
@@ -379,6 +414,7 @@ function updateQuantity(index, change) {
     resource.quantity = newVal + match[2];
     saveState();
     renderDashboard(appState);
+    calculateStats(appState); // Re-calc stats on qty change too
 }
 
 function formatDate(timestamp) {
@@ -395,20 +431,17 @@ function openResourceModal(id) {
     if (!modal) return;
 
     if (id) {
-        // EDIT MODE
         editingResourceId = id;
         const resource = appState.resources.find(r => r.id === id);
         if (resource) {
             document.getElementById('resource-modal-title').textContent = "Edit Resource";
             document.getElementById('btn-save-resource').textContent = "Update";
-
             document.getElementById('input-type').value = resource.type;
             document.getElementById('input-location').value = resource.location;
             document.getElementById('input-quantity').value = resource.quantity;
             document.getElementById('input-status').value = resource.status;
         }
     } else {
-        // ADD MODE
         editingResourceId = null;
         document.getElementById('resource-modal-title').textContent = "Add Resource";
         document.getElementById('btn-save-resource').textContent = "Save Change";
@@ -422,13 +455,11 @@ function openPersonModal(id) {
     if (!modal) return;
 
     if (id) {
-        // EDIT MODE
         editingPersonId = id;
         const person = appState.people.find(p => p.id === id);
         if (person) {
             document.getElementById('person-modal-title').textContent = "Edit Resident";
             document.getElementById('btn-save-person').textContent = "Update";
-
             document.getElementById('person-name').value = person.name;
             document.getElementById('person-age').value = person.age;
             document.getElementById('person-gender').value = person.gender;
@@ -437,7 +468,6 @@ function openPersonModal(id) {
             document.getElementById('person-contact').value = person.contact;
         }
     } else {
-        // ADD MODE
         editingPersonId = null;
         document.getElementById('person-modal-title').textContent = "Add Resident";
         document.getElementById('btn-save-person').textContent = "Save Resident";
@@ -451,7 +481,7 @@ function deletePerson(index) {
         appState.people.splice(index, 1);
         saveState();
         renderCensus(appState);
-        calculateSurvivalScore(appState);
+        calculateStats(appState);
     }
 }
 
@@ -459,16 +489,54 @@ function deletePerson(index) {
 // SETUP CONTROLS (Safe Event Listeners)
 // ==========================================================================
 
+function setupGovernanceControls() {
+    const settingsBtn = document.getElementById('settings-trigger');
+    const govModal = document.getElementById('governance-modal');
+    const govForm = document.getElementById('governance-form');
+    const cancelGovBtn = document.getElementById('btn-cancel-gov');
+
+    if (settingsBtn && govModal) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Pre-fill
+            if (appState.communityInfo) {
+                document.getElementById('gov-name').value = appState.communityInfo.name;
+                document.getElementById('gov-captain').value = appState.communityInfo.captain;
+                document.getElementById('gov-location').value = appState.communityInfo.location;
+            }
+            govModal.showModal();
+        });
+    }
+
+    if (govModal && cancelGovBtn) {
+        cancelGovBtn.addEventListener('click', () => govModal.close());
+        govModal.addEventListener('click', (e) => {
+            if (e.target === govModal) govModal.close();
+        });
+    }
+
+    if (govForm) {
+        govForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            appState.communityInfo = {
+                name: document.getElementById('gov-name').value,
+                captain: document.getElementById('gov-captain').value,
+                location: document.getElementById('gov-location').value
+            };
+            saveState();
+            updateBrand();
+            govModal.close();
+        });
+    }
+}
+
 function setupResourceControls() {
     const fab = document.getElementById('admin-toggle');
     const modal = document.getElementById('edit-modal');
     const form = document.getElementById('resource-form');
     const cancelBtn = document.getElementById('btn-cancel');
 
-    if (fab) {
-        // Use logic function to open
-        fab.addEventListener('click', () => openResourceModal(null));
-    }
+    if (fab) fab.addEventListener('click', () => openResourceModal(null));
 
     if (modal && cancelBtn) {
         cancelBtn.addEventListener('click', () => modal.close());
@@ -487,7 +555,6 @@ function setupResourceControls() {
             const status = document.getElementById('input-status').value;
 
             if (editingResourceId) {
-                // UPDATE
                 const resource = appState.resources.find(r => r.id === editingResourceId);
                 if (resource) {
                     resource.type = type;
@@ -496,7 +563,6 @@ function setupResourceControls() {
                     resource.status = status;
                 }
             } else {
-                // CREATE
                 const newResource = {
                     id: Date.now().toString(),
                     type: type,
@@ -510,7 +576,7 @@ function setupResourceControls() {
 
             saveState();
             renderDashboard(appState);
-            calculateSurvivalScore(appState);
+            calculateStats(appState);
 
             form.reset();
             modal.close();
@@ -525,9 +591,7 @@ function setupPersonControls() {
     const form = document.getElementById('person-form');
     const cancelBtn = document.getElementById('btn-cancel-person');
 
-    if (fab) {
-        fab.addEventListener('click', () => openPersonModal(null));
-    }
+    if (fab) fab.addEventListener('click', () => openPersonModal(null));
 
     if (modal && cancelBtn) {
         cancelBtn.addEventListener('click', () => modal.close());
@@ -548,7 +612,6 @@ function setupPersonControls() {
             const contact = document.getElementById('person-contact').value;
 
             if (editingPersonId) {
-                // UPDATE
                 const person = appState.people.find(p => p.id === editingPersonId);
                 if (person) {
                     person.name = name;
@@ -559,7 +622,6 @@ function setupPersonControls() {
                     person.contact = contact;
                 }
             } else {
-                // CREATE
                 const newPerson = {
                     id: Date.now().toString(),
                     name: name,
@@ -575,7 +637,7 @@ function setupPersonControls() {
 
             saveState();
             renderCensus(appState);
-            calculateSurvivalScore(appState);
+            calculateStats(appState);
 
             form.reset();
             modal.close();
@@ -590,9 +652,7 @@ function setupAlertControls() {
     const alertForm = document.getElementById('alert-form');
     const cancelAlertBtn = document.getElementById('btn-cancel-alert');
 
-    if (addAlertBtn) {
-        addAlertBtn.addEventListener('click', () => alertModal.showModal());
-    }
+    if (addAlertBtn) addAlertBtn.addEventListener('click', () => alertModal.showModal());
 
     if (alertModal && cancelAlertBtn) {
         cancelAlertBtn.addEventListener('click', () => alertModal.close());

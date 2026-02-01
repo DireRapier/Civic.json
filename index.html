@@ -12,9 +12,10 @@
 <body>
 
     <nav class="sidebar">
-        <div class="brand">Purok OS</div>
+        <div class="brand" id="app-brand">Purok OS</div>
         <a href="index.html" class="nav-link active"><i class="ri-dashboard-line"></i> Dashboard</a>
         <a href="people.html" class="nav-link"><i class="ri-group-line"></i> Census</a>
+        <a href="#" class="nav-link nav-bottom" id="settings-trigger"><i class="ri-settings-3-line"></i> Settings</a>
     </nav>
 
     <header id="app-header">
@@ -104,6 +105,33 @@
             <div class="form-actions">
                 <button type="button" id="btn-cancel" class="btn-secondary">Cancel</button>
                 <button type="submit" id="btn-save-resource" class="btn-primary">Save Change</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Governance Modal -->
+    <dialog id="governance-modal">
+        <form id="governance-form">
+            <h2>Community Settings</h2>
+
+            <div class="form-group">
+                <label for="gov-name">Community Name</label>
+                <input type="text" id="gov-name" placeholder="e.g. Purok 1" required>
+            </div>
+
+            <div class="form-group">
+                <label for="gov-captain">Captain Name</label>
+                <input type="text" id="gov-captain" placeholder="e.g. Kapitan Tiyago">
+            </div>
+
+            <div class="form-group">
+                <label for="gov-location">Location</label>
+                <input type="text" id="gov-location" placeholder="e.g. Barangay San Jose">
+            </div>
+
+            <div class="form-actions">
+                <button type="button" id="btn-cancel-gov" class="btn-secondary">Cancel</button>
+                <button type="submit" class="btn-primary">Save Settings</button>
             </div>
         </form>
     </dialog>

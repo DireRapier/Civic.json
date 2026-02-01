@@ -10,10 +10,9 @@
     --radius-md: 12px;
 
     /* Alert Severities */
-    --severity-high: #e63946;
-    --severity-medium: #e9c46a;
-    --severity-low: #457b9d;
-    --severity-info: #a8dadc;
+    --severity-critical: #e63946;
+    --severity-warning: #e9c46a;
+    --severity-info: #457b9d;
 
     /* Resource Status */
     --status-good: #2a9d8f;
@@ -42,16 +41,16 @@ h1, h2, h3 {
 }
 
 h1 {
-    font-size: 2.5rem;
+    font-size: 2rem;
     color: var(--color-text-light);
+    margin-bottom: 0;
 }
 
 h2 {
     font-size: 1.8rem;
     color: var(--color-text-light);
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 0.5rem;
-    margin-top: 2rem;
+    /* Border removed from H2 default, moved to section header or handled specifically */
+    margin-top: 0;
 }
 
 h3 {
@@ -124,10 +123,34 @@ p {
     width: 100%;
 }
 
-/* Alerts Section - Full Width */
+/* Alerts Section */
 #alerts-feed {
     width: 100%;
     margin-bottom: 3rem;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-light);
+    cursor: pointer;
+    font-size: 1.5rem;
+    opacity: 0.8;
+    transition: transform 0.2s ease;
+}
+
+.icon-btn:hover {
+    transform: scale(1.2);
+    opacity: 1;
 }
 
 /* Resources Section - Grid */
@@ -137,7 +160,14 @@ p {
     gap: var(--gap-md);
 }
 
-/* Card Styling - Low-Power Glassmorphism */
+#resources-grid h2 {
+    grid-column: 1 / -1;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Card Styling */
 .card {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -145,6 +175,7 @@ p {
     padding: var(--gap-md);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s ease;
+    position: relative; /* For absolute buttons */
 }
 
 .card:hover {
@@ -170,25 +201,40 @@ i {
     color: var(--color-primary);
 }
 
-/* Specific Card Styles */
-
-/* Alerts */
+/* Alerts Specifics */
 .alert-card {
     margin-bottom: 1rem;
     border-left: 5px solid transparent;
 }
 
-.alert-card.severity-high { border-left-color: var(--severity-high); }
-.alert-card.severity-medium { border-left-color: var(--severity-medium); }
-.alert-card.severity-low { border-left-color: var(--severity-low); }
+.alert-card.severity-critical { border-left-color: var(--severity-critical); }
+.alert-card.severity-warning { border-left-color: var(--severity-warning); }
 .alert-card.severity-info { border-left-color: var(--severity-info); }
 
 .alert-card i {
     margin-right: 0.75rem;
-    float: left; /* Simple alignment for alert icon */
+    float: left;
 }
 
-/* Resources */
+/* Alert Zero State */
+.alert-safe {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    padding: 1rem;
+}
+.alert-safe h3 {
+    color: #155724;
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.alert-safe i {
+    color: #155724;
+}
+
+/* Resource Specifics */
 .status-badge {
     display: inline-block;
     padding: 0.25rem 0.75rem;
@@ -209,16 +255,23 @@ i {
     color: var(--color-primary);
 }
 
-/* Error State */
-.error-state {
-    background: var(--severity-high);
-    color: white;
-    padding: 2rem;
-    text-align: center;
-    border-radius: var(--radius-md);
-    font-weight: 700;
-    font-size: 1.25rem;
-    border: 2px solid rgba(255, 255, 255, 0.5);
+/* Dismiss/Delete Buttons */
+.btn-dismiss, .btn-trash {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: transparent;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 1.2rem;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.btn-dismiss:hover, .btn-trash:hover {
+    opacity: 1;
+    color: var(--severity-critical);
 }
 
 /* FAB Button */
@@ -267,14 +320,14 @@ dialog::backdrop {
     backdrop-filter: blur(2px);
 }
 
-#resource-form {
+#resource-form, #alert-form {
     padding: 2rem;
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-#resource-form h2 {
+#resource-form h2, #alert-form h2 {
     color: var(--color-primary);
     border-bottom: none;
     padding-bottom: 0;
@@ -337,6 +390,6 @@ button[type="submit"], button[type="button"] {
     }
 
     h1 {
-        font-size: 2rem;
+        font-size: 1.5rem;
     }
 }

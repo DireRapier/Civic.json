@@ -15,11 +15,59 @@ function initApp() {
         .then(data => {
             console.log('Data loaded successfully:', data);
             renderDashboard(data);
+            calculateSurvivalScore(data);
         })
         .catch(error => {
             console.error('Fetch error:', error);
             renderErrorState();
         });
+}
+
+function calculateSurvivalScore(data) {
+    const scoreElement = document.getElementById('survival-score');
+    const header = document.getElementById('app-header');
+
+    // Count Active Resources ("Good" or "Adequate")
+    let activeResources = 0;
+    if (data.resources) {
+        activeResources = data.resources.filter(r =>
+            ['good', 'adequate'].includes(r.status.toLowerCase())
+        ).length;
+    }
+
+    // Count Skills
+    let skillCount = 0;
+    if (data.skills) {
+        skillCount = data.skills.length;
+    }
+
+    // Formula: (Active Resources * 5) + (Skills * 10)
+    let rawScore = (activeResources * 5) + (skillCount * 10);
+
+    // Clamp to 100
+    const finalScore = Math.min(rawScore, 100);
+
+    // Update UI
+    scoreElement.textContent = `Survival Score: ${finalScore}%`;
+    scoreElement.style.fontWeight = 'bold';
+    scoreElement.style.marginTop = '0.5rem';
+
+    // Update Header Border based on Score
+    let borderColor = '#e74c3c'; // Default Red (< 50)
+
+    if (finalScore >= 80) {
+        borderColor = '#27ae60'; // Green
+    } else if (finalScore >= 50) {
+        borderColor = '#f1c40f'; // Yellow
+    }
+
+    header.style.borderBottom = `4px solid ${borderColor}`;
+
+    console.log(`Survival Score Calculation:
+    Active Resources: ${activeResources} (* 5 = ${activeResources * 5})
+    Skills: ${skillCount} (* 10 = ${skillCount * 10})
+    Total: ${rawScore} (Clamped: ${finalScore})
+    Status Color: ${borderColor}`);
 }
 
 function renderDashboard(data) {

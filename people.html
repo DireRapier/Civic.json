@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Civic.json - Census</title>
+    <!-- Remixicons CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- External CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="brand">Purok OS</div>
+        <a href="index.html" class="nav-link"><i class="ri-dashboard-line"></i> Dashboard</a>
+        <a href="people.html" class="nav-link active"><i class="ri-group-line"></i> Census</a>
+    </nav>
+
+    <header id="app-header">
+        <div class="header-left">
+            <h1><i class="ri-community-line"></i> Civic.json</h1>
+        </div>
+
+        <div class="header-center">
+            <div id="survival-score"></div>
+        </div>
+
+        <div class="system-controls">
+            <button id="btn-export" aria-label="Export Data" title="Export Backup">
+                <i class="ri-download-cloud-line"></i>
+            </button>
+            <button id="btn-import-trigger" aria-label="Import Data" title="Import Backup">
+                <i class="ri-upload-cloud-line"></i>
+            </button>
+            <input type="file" id="file-import" accept=".json" style="display: none;">
+        </div>
+    </header>
+
+    <main id="dashboard-grid">
+        <section id="people-feed">
+            <div class="section-header">
+                <h2><i class="ri-team-line"></i> Residents Directory</h2>
+                <button id="add-person-btn" class="icon-btn" aria-label="Add Person">
+                    <i class="ri-user-add-line"></i>
+                </button>
+            </div>
+            <div id="census-container">
+                <!-- Profile Cards will be injected here -->
+            </div>
+        </section>
+    </main>
+
+    <!-- External JS -->
+    <script src="js/app.js"></script>
+</body>
+</html>
